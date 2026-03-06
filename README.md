@@ -159,7 +159,3 @@ Systematic review confirming strong evidence that self-monitoring interventions 
 Recent research showing that attention self-monitoring improves concentration and cognitive flexibility in students with learning disabilities.
 
 ---
-
-# Conceptual Model
-
-The Attention Beeper implements the following loop:
