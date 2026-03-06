@@ -1,9 +1,19 @@
 export const SOUNDS = [
-  { id: 'chime', label: 'Soft Chime' },
-  { id: 'bell', label: 'Bell' },
-  { id: 'digital', label: 'Digital Beep' },
-  { id: 'ping', label: 'Ping' },
-  { id: 'alert', label: 'Alert Tone' },
+  { id: 'chime',    label: 'Soft Chime' },
+  { id: 'bell',     label: 'Bell' },
+  { id: 'digital',  label: 'Digital Beep' },
+  { id: 'ping',     label: 'Ping' },
+  { id: 'alert',    label: 'Alert Tone' },
+  { id: 'drop',     label: 'Drop' },
+  { id: 'bubble',   label: 'Bubble Pop' },
+  { id: 'knock',    label: 'Knock' },
+  { id: 'woodblock',label: 'Wood Block' },
+  { id: 'pluck',    label: 'Pluck' },
+  { id: 'chord',    label: 'Soft Chord' },
+  { id: 'blip',     label: 'Blip' },
+  { id: 'ding',     label: 'Ding' },
+  { id: 'whoosh',   label: 'Whoosh' },
+  { id: 'click',    label: 'Click' },
 ]
 
 let audioCtx = null
@@ -25,11 +35,21 @@ export async function playSound(soundId) {
   try {
     const ctx = await resumeCtx()
     switch (soundId) {
-      case 'chime':   softChime(ctx);   break
-      case 'bell':    bell(ctx);        break
-      case 'digital': digitalBeep(ctx); break
-      case 'ping':    ping(ctx);        break
-      case 'alert':   alertTone(ctx);   break
+      case 'chime':     softChime(ctx);   break
+      case 'bell':      bell(ctx);        break
+      case 'digital':   digitalBeep(ctx); break
+      case 'ping':      ping(ctx);        break
+      case 'alert':     alertTone(ctx);   break
+      case 'drop':      drop(ctx);        break
+      case 'bubble':    bubble(ctx);      break
+      case 'knock':     knock(ctx);       break
+      case 'woodblock': woodblock(ctx);   break
+      case 'pluck':     pluck(ctx);       break
+      case 'chord':     chord(ctx);       break
+      case 'blip':      blip(ctx);        break
+      case 'ding':      ding(ctx);        break
+      case 'whoosh':    whoosh(ctx);      break
+      case 'click':     click(ctx);       break
     }
   } catch (e) {
     console.warn('Audio playback failed:', e)
@@ -114,4 +134,173 @@ function alertTone(ctx) {
     osc.start(t + offset)
     osc.stop(t + offset + 0.18)
   })
+}
+
+// Descending pitch drop
+function drop(ctx) {
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(600, t)
+  osc.frequency.exponentialRampToValueAtTime(150, t + 0.4)
+  gain.gain.setValueAtTime(0.4, t)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4)
+  osc.start(t)
+  osc.stop(t + 0.4)
+}
+
+// Short high-pitched pop
+function bubble(ctx) {
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(300, t)
+  osc.frequency.exponentialRampToValueAtTime(1200, t + 0.08)
+  gain.gain.setValueAtTime(0.35, t)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12)
+  osc.start(t)
+  osc.stop(t + 0.12)
+}
+
+// Low thud using noise burst shaped with a fast decay
+function knock(ctx) {
+  const t = ctx.currentTime
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 8)
+  const src = ctx.createBufferSource()
+  const gain = ctx.createGain()
+  const filter = ctx.createBiquadFilter()
+  src.buffer = buffer
+  filter.type = 'lowpass'
+  filter.frequency.setValueAtTime(180, t)
+  src.connect(filter)
+  filter.connect(gain)
+  gain.connect(ctx.destination)
+  gain.gain.setValueAtTime(1.5, t)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1)
+  src.start(t)
+}
+
+// Percussive click on a high-freq sine
+function woodblock(ctx) {
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(800, t)
+  osc.frequency.exponentialRampToValueAtTime(400, t + 0.05)
+  gain.gain.setValueAtTime(0.6, t)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08)
+  osc.start(t)
+  osc.stop(t + 0.08)
+}
+
+// Guitar-like pluck using filtered noise decay
+function pluck(ctx) {
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.type = 'triangle'
+  osc.frequency.setValueAtTime(493, t)
+  gain.gain.setValueAtTime(0.5, t)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6)
+  osc.start(t)
+  osc.stop(t + 0.6)
+}
+
+// Three-note ascending soft chord
+function chord(ctx) {
+  const t = ctx.currentTime
+  ;[261, 329, 392].forEach((freq, i) => {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(freq, t + i * 0.06)
+    gain.gain.setValueAtTime(0, t + i * 0.06)
+    gain.gain.linearRampToValueAtTime(0.2, t + i * 0.06 + 0.04)
+    gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.06 + 1.2)
+    osc.start(t + i * 0.06)
+    osc.stop(t + i * 0.06 + 1.2)
+  })
+}
+
+// Very short high square blip
+function blip(ctx) {
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.type = 'square'
+  osc.frequency.setValueAtTime(1800, t)
+  gain.gain.setValueAtTime(0.12, t)
+  gain.gain.linearRampToValueAtTime(0, t + 0.06)
+  osc.start(t)
+  osc.stop(t + 0.06)
+}
+
+// Clear mid-range sine ding
+function ding(ctx) {
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(1047, t)
+  gain.gain.setValueAtTime(0, t)
+  gain.gain.linearRampToValueAtTime(0.45, t + 0.01)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 1.6)
+  osc.start(t)
+  osc.stop(t + 1.6)
+}
+
+// Rising filtered noise sweep
+function whoosh(ctx) {
+  const t = ctx.currentTime
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.35, ctx.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const src = ctx.createBufferSource()
+  const filter = ctx.createBiquadFilter()
+  const gain = ctx.createGain()
+  src.buffer = buffer
+  filter.type = 'bandpass'
+  filter.frequency.setValueAtTime(400, t)
+  filter.frequency.exponentialRampToValueAtTime(3000, t + 0.3)
+  filter.Q.setValueAtTime(2, t)
+  src.connect(filter)
+  filter.connect(gain)
+  gain.connect(ctx.destination)
+  gain.gain.setValueAtTime(0.6, t)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35)
+  src.start(t)
+}
+
+// Crisp mechanical click
+function click(ctx) {
+  const t = ctx.currentTime
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.02, ctx.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 3)
+  const src = ctx.createBufferSource()
+  const gain = ctx.createGain()
+  src.buffer = buffer
+  src.connect(gain)
+  gain.connect(ctx.destination)
+  gain.gain.setValueAtTime(1.2, t)
+  src.start(t)
 }
