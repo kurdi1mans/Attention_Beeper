@@ -21,14 +21,19 @@ export default function App() {
 
   scheduleRef.current = useCallback(() => {
     const base = intervalMsRef.current
-    const delay = modeRef.current === 'fixed'
-      ? base
-      : Math.max(1000, Math.random() * base)
 
-    timerRef.current = setTimeout(() => {
-      playSound(soundRef.current)
-      scheduleRef.current()
-    }, delay)
+    if (modeRef.current === 'fixed') {
+      timerRef.current = setTimeout(() => {
+        playSound(soundRef.current)
+        scheduleRef.current()
+      }, base)
+    } else {
+      const delay = Math.max(1000, Math.random() * base)
+      timerRef.current = setTimeout(() => {
+        playSound(soundRef.current)
+        timerRef.current = setTimeout(() => scheduleRef.current(), base - delay)
+      }, delay)
+    }
   }, [])
 
   const handleStart = () => {
