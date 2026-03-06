@@ -2,6 +2,8 @@
 
 Attention Beeper is a lightweight web application that generates **periodic or random beep sounds** to help users maintain focus during work or study sessions.
 
+Try the application here https://kurdi1mans.github.io/Attention_Beeper/
+
 The application implements a well-studied behavioral technique called **Self-Monitoring of Attention (SMA)**. At each beep, the user briefly checks whether they are focused on the task. If attention has drifted, the beep acts as a cue to redirect attention back to the task.
 
 This method has been used in **behavioral psychology, ADHD interventions, classroom attention training, and productivity research** for decades.
