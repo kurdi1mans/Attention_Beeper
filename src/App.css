@@ -282,12 +282,56 @@
 }
 
 /* ── Mobile adjustments ── */
-@media (max-width: 400px) {
+@media (max-width: 480px) {
   .card {
     padding: 1.25rem;
+    gap: 1.1rem;
+    border-radius: 16px;
+  }
+
+  .app-header {
+    margin-bottom: 1rem;
   }
 
   .app-header h1 {
     font-size: 1.5rem;
+  }
+
+  .select-unit {
+    min-width: 90px;
+  }
+}
+
+@media (max-width: 360px) {
+  .card {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .app-header h1 {
+    font-size: 1.3rem;
+  }
+
+  .app-icon {
+    font-size: 2rem;
+  }
+
+  .select,
+  .input-number {
+    height: 42px;
+    font-size: 0.95rem;
+  }
+
+  .btn-secondary {
+    height: 42px;
+    padding: 0 0.8rem;
+  }
+
+  .btn-large {
+    height: 48px;
+  }
+
+  .select-unit {
+    min-width: 80px;
   }
 }
