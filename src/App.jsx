@@ -13,43 +13,47 @@ export default function App() {
   const modeRef = useRef(mode)
   const soundRef = useRef(selectedSound)
   const intervalMsRef = useRef(null)
-  const timerRef = useRef(null)
-  const scheduleRef = useRef(null)
+  const runIdRef = useRef(0)
 
   useEffect(() => { modeRef.current = mode }, [mode])
   useEffect(() => { soundRef.current = selectedSound }, [selectedSound])
 
-  scheduleRef.current = useCallback(() => {
-    const base = intervalMsRef.current
-
-    if (modeRef.current === 'fixed') {
-      timerRef.current = setTimeout(() => {
-        playSound(soundRef.current)
-        scheduleRef.current()
-      }, base)
-    } else {
-      const delay = Math.max(1000, Math.random() * base)
-      timerRef.current = setTimeout(() => {
-        playSound(soundRef.current)
-        timerRef.current = setTimeout(() => scheduleRef.current(), base - delay)
-      }, delay)
-    }
-  }, [])
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
   const handleStart = () => {
     const val = Math.max(1, Number(intervalValue) || 1)
     intervalMsRef.current = intervalUnit === 'minutes' ? val * 60_000 : val * 1_000
     setIsRunning(true)
-    scheduleRef.current()
+
+    const id = ++runIdRef.current
+
+    const loop = async () => {
+      while (runIdRef.current === id) {
+        const base = intervalMsRef.current
+
+        if (modeRef.current === 'fixed') {
+          await sleep(base)                  // wait the full interval
+          if (runIdRef.current !== id) break
+          playSound(soundRef.current)        // <-- BEEP (fixed mode)
+        } else {
+          const delay = Math.max(1000, Math.random() * base)
+          await sleep(delay)                 // wait a random point within the interval
+          if (runIdRef.current !== id) break
+          playSound(soundRef.current)        // <-- BEEP (random mode)
+          await sleep(base - delay)          // wait out the remainder of the period
+        }
+      }
+    }
+    loop()
   }
 
   const handleStop = useCallback(() => {
-    clearTimeout(timerRef.current)
+    runIdRef.current++ // invalidates the running loop
     setIsRunning(false)
   }, [])
 
-  // Cleanup on unmount
-  useEffect(() => () => clearTimeout(timerRef.current), [])
+  // Invalidate the loop on unmount
+  useEffect(() => () => { runIdRef.current++ }, [])
 
   const modeHint = mode === 'fixed'
     ? `Beeps exactly every ${intervalValue} ${intervalUnit}`
