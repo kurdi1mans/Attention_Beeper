@@ -3,9 +3,9 @@ import { SOUNDS, playSound } from './sounds'
 import './App.css'
 
 export default function App() {
-  const [intervalValue, setIntervalValue] = useState(5)
-  const [intervalUnit, setIntervalUnit] = useState('minutes')
-  const [mode, setMode] = useState('fixed')
+  const [intervalValue, setIntervalValue] = useState(60)
+  const [intervalUnit, setIntervalUnit] = useState('seconds')
+  const [mode, setMode] = useState('random')
   const [selectedSound, setSelectedSound] = useState(SOUNDS[0].id)
   const [isRunning, setIsRunning] = useState(false)
 

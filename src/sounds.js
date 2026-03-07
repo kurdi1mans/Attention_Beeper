@@ -1,17 +1,17 @@
 export const SOUNDS = [
-  { id: 'chime',    label: 'Soft Chime' },
-  { id: 'bell',     label: 'Bell' },
   { id: 'digital',  label: 'Digital Beep' },
   { id: 'ping',     label: 'Ping' },
+  { id: 'pluck',    label: 'Pluck' },
+  { id: 'ding',     label: 'Ding' },
+  { id: 'danger',   label: 'Danger Warning' },
+  { id: 'chime',    label: 'Soft Chime' },
+  { id: 'bell',     label: 'Bell' },
   { id: 'alert',    label: 'Alert Tone' },
   { id: 'drop',     label: 'Drop' },
   { id: 'bubble',   label: 'Bubble Pop' },
-  { id: 'knock',    label: 'Knock' },
   { id: 'woodblock',label: 'Wood Block' },
-  { id: 'pluck',    label: 'Pluck' },
   { id: 'chord',    label: 'Soft Chord' },
   { id: 'blip',     label: 'Blip' },
-  { id: 'ding',     label: 'Ding' },
   { id: 'whoosh',   label: 'Whoosh' },
   { id: 'click',    label: 'Click' },
 ]
@@ -37,12 +37,12 @@ export async function playSound(soundId) {
     switch (soundId) {
       case 'chime':     softChime(ctx);   break
       case 'bell':      bell(ctx);        break
+      case 'danger':    danger(ctx);      break
       case 'digital':   digitalBeep(ctx); break
       case 'ping':      ping(ctx);        break
       case 'alert':     alertTone(ctx);   break
       case 'drop':      drop(ctx);        break
       case 'bubble':    bubble(ctx);      break
-      case 'knock':     knock(ctx);       break
       case 'woodblock': woodblock(ctx);   break
       case 'pluck':     pluck(ctx);       break
       case 'chord':     chord(ctx);       break
@@ -53,6 +53,27 @@ export async function playSound(soundId) {
     }
   } catch (e) {
     console.warn('Audio playback failed:', e)
+  }
+}
+
+// 3-second alternating two-tone alarm (6 cycles of 800 Hz / 1200 Hz)
+function danger(ctx) {
+  const t = ctx.currentTime
+  for (let i = 0; i < 6; i++) {
+    const base = t + i * 0.5
+    ;[0, 0.25].forEach((offset, j) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'square'
+      osc.frequency.setValueAtTime(j === 0 ? 800 : 1200, base + offset)
+      gain.gain.setValueAtTime(0.25, base + offset)
+      gain.gain.setValueAtTime(0.25, base + offset + 0.2)
+      gain.gain.linearRampToValueAtTime(0, base + offset + 0.23)
+      osc.start(base + offset)
+      osc.stop(base + offset + 0.23)
+    })
   }
 }
 
@@ -166,26 +187,6 @@ function bubble(ctx) {
   gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12)
   osc.start(t)
   osc.stop(t + 0.12)
-}
-
-// Low thud using noise burst shaped with a fast decay
-function knock(ctx) {
-  const t = ctx.currentTime
-  const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate)
-  const data = buffer.getChannelData(0)
-  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 8)
-  const src = ctx.createBufferSource()
-  const gain = ctx.createGain()
-  const filter = ctx.createBiquadFilter()
-  src.buffer = buffer
-  filter.type = 'lowpass'
-  filter.frequency.setValueAtTime(180, t)
-  src.connect(filter)
-  filter.connect(gain)
-  gain.connect(ctx.destination)
-  gain.gain.setValueAtTime(1.5, t)
-  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1)
-  src.start(t)
 }
 
 // Percussive click on a high-freq sine
