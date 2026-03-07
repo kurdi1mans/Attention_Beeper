@@ -14,6 +14,8 @@ export default function App() {
   const soundRef = useRef(selectedSound)
   const intervalMsRef = useRef(null)
   const runIdRef = useRef(0)
+  const nextBeepAtRef = useRef(null)
+  const [timeLeft, setTimeLeft] = useState(null)
 
   useEffect(() => { modeRef.current = mode }, [mode])
   useEffect(() => { soundRef.current = selectedSound }, [selectedSound])
@@ -28,21 +30,31 @@ export default function App() {
     const id = ++runIdRef.current
 
     const loop = async () => {
+      let prePickedDelay = null
+
       while (runIdRef.current === id) {
         const base = intervalMsRef.current
 
         if (modeRef.current === 'fixed') {
-          await sleep(base)                  // wait the full interval
+          nextBeepAtRef.current = Date.now() + base
+          await sleep(base)
           if (runIdRef.current !== id) break
-          playSound(soundRef.current)        // <-- BEEP (fixed mode)
+          playSound(soundRef.current)
         } else {
-          const delay = Math.max(1000, Math.random() * base)
-          await sleep(delay)                 // wait a random point within the interval
+          const delay = prePickedDelay ?? Math.max(1000, Math.random() * base)
+          prePickedDelay = null
+          nextBeepAtRef.current = Date.now() + delay
+          await sleep(delay)
           if (runIdRef.current !== id) break
-          playSound(soundRef.current)        // <-- BEEP (random mode)
-          await sleep(base - delay)          // wait out the remainder of the period
+          playSound(soundRef.current)
+          const remainder = base - delay
+          const nextDelay = Math.max(1000, Math.random() * base)
+          prePickedDelay = nextDelay
+          nextBeepAtRef.current = Date.now() + remainder + nextDelay
+          await sleep(remainder)
         }
       }
+      nextBeepAtRef.current = null
     }
     loop()
   }
@@ -54,6 +66,26 @@ export default function App() {
 
   // Invalidate the loop on unmount
   useEffect(() => () => { runIdRef.current++ }, [])
+
+  // Countdown ticker
+  useEffect(() => {
+    if (!isRunning) { setTimeLeft(null); return }
+    const ticker = setInterval(() => {
+      if (nextBeepAtRef.current != null) {
+        setTimeLeft(Math.max(0, Math.ceil((nextBeepAtRef.current - Date.now()) / 1000)))
+      } else {
+        setTimeLeft(null)
+      }
+    }, 250)
+    return () => clearInterval(ticker)
+  }, [isRunning])
+
+  const formatTime = (s) => {
+    if (s == null) return '—'
+    const m = Math.floor(s / 60)
+    const sec = s % 60
+    return `${m}:${sec.toString().padStart(2, '0')}`
+  }
 
   const modeHint = mode === 'fixed'
     ? `Beeps exactly every ${intervalValue} ${intervalUnit}`
@@ -156,6 +188,12 @@ export default function App() {
             <button className="btn btn-primary btn-large" onClick={handleStart}>
               Start
             </button>
+          )}
+          {isRunning && (
+            <div className="countdown">
+              <span className="countdown-label">Next beep in</span>
+              <span className="countdown-time">{formatTime(timeLeft)}</span>
+            </div>
           )}
           <span className={`status-badge${isRunning ? ' running' : ''}`}>
             <span className="status-dot" />

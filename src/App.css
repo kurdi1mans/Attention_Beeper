@@ -244,6 +244,30 @@
   gap: 0.9rem;
 }
 
+/* ── Countdown ── */
+.countdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.countdown-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #a0aec0;
+}
+
+.countdown-time {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #667eea;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Status badge ── */
 .status-badge {
   display: inline-flex;
