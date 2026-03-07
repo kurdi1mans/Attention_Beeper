@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { registerPlugin } from '@capacitor/core'
 import { SOUNDS, playSound } from './sounds'
 import './App.css'
+
+const BackgroundMode = registerPlugin('BackgroundMode')
 
 export default function App() {
   const [intervalValue, setIntervalValue] = useState(60)
@@ -26,6 +29,7 @@ export default function App() {
     const val = Math.max(1, Number(intervalValue) || 1)
     intervalMsRef.current = intervalUnit === 'minutes' ? val * 60_000 : val * 1_000
     setIsRunning(true)
+    BackgroundMode.enable().catch(() => {})
 
     const id = ++runIdRef.current
 
@@ -62,10 +66,14 @@ export default function App() {
   const handleStop = useCallback(() => {
     runIdRef.current++ // invalidates the running loop
     setIsRunning(false)
+    BackgroundMode.disable().catch(() => {})
   }, [])
 
-  // Invalidate the loop on unmount
-  useEffect(() => () => { runIdRef.current++ }, [])
+  // Invalidate the loop and stop background service on unmount
+  useEffect(() => () => {
+    runIdRef.current++
+    BackgroundMode.disable().catch(() => {})
+  }, [])
 
   // Countdown ticker
   useEffect(() => {
