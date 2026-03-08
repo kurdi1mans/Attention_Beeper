@@ -23,13 +23,23 @@ export default function App() {
   useEffect(() => { modeRef.current = mode }, [mode])
   useEffect(() => { soundRef.current = selectedSound }, [selectedSound])
 
+  // Play the selected sound whenever the native scheduler fires a beep.
+  // This keeps Web Audio API usage in JS (preserving all custom sounds) while
+  // the actual timing is driven by the Android foreground service.
+  useEffect(() => {
+    const listenerPromise = BackgroundMode.addListener('beep', () => {
+      playSound(soundRef.current)
+    })
+    return () => { listenerPromise.then(h => h.remove()) }
+  }, [])
+
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
   const handleStart = () => {
     const val = Math.max(1, Number(intervalValue) || 1)
     intervalMsRef.current = intervalUnit === 'minutes' ? val * 60_000 : val * 1_000
     setIsRunning(true)
-    BackgroundMode.enable().catch(() => {})
+    BackgroundMode.schedule({ intervalMs: intervalMsRef.current, mode: modeRef.current }).catch(() => {})
 
     const id = ++runIdRef.current
 
@@ -43,14 +53,14 @@ export default function App() {
           nextBeepAtRef.current = Date.now() + base
           await sleep(base)
           if (runIdRef.current !== id) break
-          playSound(soundRef.current)
+          // Sound is played via the native 'beep' listener — no call here.
         } else {
           const delay = prePickedDelay ?? Math.max(1000, Math.random() * base)
           prePickedDelay = null
           nextBeepAtRef.current = Date.now() + delay
           await sleep(delay)
           if (runIdRef.current !== id) break
-          playSound(soundRef.current)
+          // Sound is played via the native 'beep' listener — no call here.
           const remainder = base - delay
           const nextDelay = Math.max(1000, Math.random() * base)
           prePickedDelay = nextDelay
@@ -66,13 +76,13 @@ export default function App() {
   const handleStop = useCallback(() => {
     runIdRef.current++ // invalidates the running loop
     setIsRunning(false)
-    BackgroundMode.disable().catch(() => {})
+    BackgroundMode.cancel().catch(() => {})
   }, [])
 
   // Invalidate the loop and stop background service on unmount
   useEffect(() => () => {
     runIdRef.current++
-    BackgroundMode.disable().catch(() => {})
+    BackgroundMode.cancel().catch(() => {})
   }, [])
 
   // Countdown ticker
