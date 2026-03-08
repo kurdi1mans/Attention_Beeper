@@ -36,7 +36,12 @@ public class BackgroundModePlugin extends Plugin {
      */
     @PluginMethod
     public void schedule(PluginCall call) {
-        long intervalMs = call.getLong("intervalMs", 60000L);
+        // Use getDouble() because Capacitor's Android bridge stores JSON numbers as
+        // doubles internally; getLong() can silently return the default if the key is
+        // not found under that type. getDouble() returns boxed Double, so unbox via
+        // longValue(). A value like 600000.0 converts exactly to 600000L.
+        Double dMs = call.getDouble("intervalMs", 60000.0);
+        long intervalMs = (dMs != null) ? dMs.longValue() : 60000L;
         String mode = call.getString("mode", "fixed");
 
         Intent intent = new Intent(getContext(), BackgroundService.class);
