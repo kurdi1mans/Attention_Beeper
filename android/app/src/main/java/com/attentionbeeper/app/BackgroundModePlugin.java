@@ -21,12 +21,27 @@ public class BackgroundModePlugin extends Plugin {
     }
 
     /**
-     * Called by BackgroundService on the main thread each time a beep fires.
-     * Forwards the event to JS so the Web Audio API can play the selected sound.
+     * Fired once when the scheduler starts so JS can show the countdown immediately,
+     * before the first beep arrives.
+     * nextDelayMs = how long until the first beep.
      */
-    public static void triggerBeep() {
+    public static void notifyNextDelay(long nextDelayMs) {
         if (instance != null) {
-            instance.notifyListeners("beep", new JSObject());
+            JSObject data = new JSObject();
+            data.put("nextDelayMs", nextDelayMs);
+            instance.notifyListeners("scheduled", data);
+        }
+    }
+
+    /**
+     * Fired on every beep. Includes the delay already chosen for the NEXT beep so JS
+     * can update the countdown to reflect the native timer exactly, with no drift.
+     */
+    public static void triggerBeep(long nextDelayMs) {
+        if (instance != null) {
+            JSObject data = new JSObject();
+            data.put("nextDelayMs", nextDelayMs);
+            instance.notifyListeners("beep", data);
         }
     }
 

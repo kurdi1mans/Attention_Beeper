@@ -84,30 +84,47 @@ public class BackgroundService extends Service {
             wakeLock.acquire();
         }
 
-        // Cancel any pending callbacks from a previous start before scheduling.
+        // Cancel any leftover callbacks, then start fresh.
         handler.removeCallbacksAndMessages(null);
-        scheduleNextBeep();
+        startScheduler();
 
         return START_STICKY;
     }
 
     /**
-     * Pick the next delay, wait for it on the main-thread Handler, then fire the beep
-     * and reschedule. Running on the main thread is required because BackgroundModePlugin
-     * calls notifyListeners() which posts to the WebView via evaluateJavascript().
+     * Compute the first delay, immediately tell JS about it (so the countdown shows
+     * before the first beep arrives), then enqueue the first callback.
      */
-    private void scheduleNextBeep() {
-        long delay;
-        if ("random".equals(mode)) {
-            delay = Math.max(1000L, (long) (Math.random() * intervalMs));
-        } else {
-            delay = intervalMs;
-        }
+    private void startScheduler() {
+        long firstDelay = computeDelay();
+        BackgroundModePlugin.notifyNextDelay(firstDelay);
+        scheduleNextBeep(firstDelay);
+    }
 
+    /**
+     * Enqueue a callback to fire after `delay` ms. When it fires:
+     *   1. Compute the delay for the cycle AFTER this one.
+     *   2. Tell JS: "beep now, and your next beep is in nextDelay ms."
+     *   3. Enqueue the next callback with that pre-computed delay.
+     *
+     * Pre-computing the next delay before calling triggerBeep() means JS receives
+     * the exact value the native Handler is about to wait on — no independent
+     * random sampling on the JS side, no drift between the countdown and the beep.
+     */
+    private void scheduleNextBeep(long delay) {
         handler.postDelayed(() -> {
-            BackgroundModePlugin.triggerBeep();
-            scheduleNextBeep();
+            long nextDelay = computeDelay();
+            BackgroundModePlugin.triggerBeep(nextDelay);
+            scheduleNextBeep(nextDelay);
         }, delay);
+    }
+
+    /** Returns a delay in ms: fixed = intervalMs, random = uniform in [1000, intervalMs]. */
+    private long computeDelay() {
+        if ("random".equals(mode)) {
+            return Math.max(1000L, (long) (Math.random() * intervalMs));
+        }
+        return intervalMs;
     }
 
     @Override
