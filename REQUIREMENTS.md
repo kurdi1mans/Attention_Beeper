@@ -1,27 +1,140 @@
 # Attention Beeper — Requirements
 
 ## Overview
-Attention Beeper is a React application that plays a synthesized beep sound at user-configured intervals to help the user maintain focus. It targets two platforms:
 
-1. **Web** — deployed as a static site to GitHub Pages.
-2. **Android** — wrapped with Capacitor and built as a native APK, with a foreground service that keeps the session alive when the app is in the background.
-
-There is no backend. All logic is client-side.
+Attention Beeper plays a synthesized beep sound at user-configured intervals to help the user maintain focus. It is available as a browser-based web app and as an Android app. There is no backend; all logic runs on the client.
 
 ---
 
-## Technology Stack
+# Part 1 — Functional Requirements
+
+## 1. Default Values
+
+| Setting | Default |
+|---|---|
+| Interval value | 60 |
+| Interval unit | Seconds |
+| Interval mode | Random |
+| Beep sound | Digital Beep |
+
+---
+
+## 2. Beep Interval
+
+The user configures how often the beep fires by setting two values:
+
+- **Interval value** — a positive integer, minimum 1.
+- **Interval unit** — either Seconds or Minutes.
+
+Both are locked and cannot be changed while a session is running.
+
+---
+
+## 3. Interval Mode
+
+Two modes are available:
+
+- **Fixed** — the beep fires at exactly the end of every interval.
+- **Random** — the beep fires at a random moment within each interval window. Each window has the same duration as the configured interval, and the beep falls somewhere inside it. No two windows overlap; the next window begins only after the current one ends.
+
+A descriptive hint updates dynamically below the mode selector:
+- Fixed: *Beeps exactly every {value} {unit}*
+- Random: *Beeps at a random moment within each {value}-{second|minute} window*
+
+The mode cannot be changed while a session is running.
+
+---
+
+## 4. Sound Selection
+
+The user selects one of 15 built-in beep sounds from a list. All sounds are generated programmatically — no audio files are used. The selection cannot be changed while a session is running.
+
+The available sounds are:
+
+| ID | Label |
+|---|---|
+| `digital` | Digital Beep |
+| `ping` | Ping |
+| `pluck` | Pluck |
+| `ding` | Ding |
+| `danger` | Danger Warning |
+| `chime` | Soft Chime |
+| `bell` | Bell |
+| `alert` | Alert Tone |
+| `drop` | Drop |
+| `bubble` | Bubble Pop |
+| `woodblock` | Wood Block |
+| `chord` | Soft Chord |
+| `blip` | Blip |
+| `whoosh` | Whoosh |
+| `click` | Click |
+
+---
+
+## 5. Sound Preview
+
+A **Test** button plays the currently selected sound immediately. It is always available, including during a running session.
+
+---
+
+## 6. Session Controls
+
+- **Start** — begins the session. Locks the interval, unit, mode, and sound selectors. Not visible while a session is running.
+- **Stop** — ends the session immediately, even mid-interval. Not visible while the session is stopped.
+
+Only one of these is visible at any time.
+
+---
+
+## 7. Countdown Timer
+
+While a session is running, the app displays a live countdown to the next beep in minutes and seconds (e.g. `1:05`, `0:30`). The display shows `—` if the next beep time is not yet determined. The countdown disappears when the session is stopped.
+
+In **random mode**, the countdown always reflects the exact moment the next beep will fire — it is not an estimate.
+
+---
+
+## 8. Session Status
+
+A status indicator is always visible showing whether the session is stopped or running. The running state is visually distinguished from the stopped state (e.g. by color and animation).
+
+---
+
+## 9. Background Execution (Android)
+
+On Android, the session continues beeping when the app is sent to the background or the screen is turned off. The beep timing and sound are unaffected by the app not being in the foreground. A persistent system notification is shown while a session is running, indicating the session is active.
+
+---
+
+## 10. No Persistence
+
+Settings are not saved between sessions. Every time the app is opened, it starts with the default values.
+
+---
+
+## 11. Responsive Layout
+
+The app layout adapts to the screen size without horizontal scrolling at any viewport width. It works on both desktop and mobile screens.
+
+---
+
+# Part 2 — Technical Requirements
+
+---
+
+## 2a. Web App
+
+### Technology Stack
 
 | Concern | Choice |
 |---|---|
-| UI framework | React 18 (functional components and hooks only, no class components) |
+| UI framework | React 18 — functional components and hooks only, no class components |
+| Language | JSX, no TypeScript |
 | Build tool | Vite 5 with `@vitejs/plugin-react` |
-| Language | JSX (no TypeScript) |
-| Audio | Web Audio API only — all sounds are synthesized at runtime, no audio files |
-| Android wrapper | Capacitor 8 (`@capacitor/core`, `@capacitor/android`, `@capacitor/cli`) |
-| Android background execution | Custom Capacitor plugin (`BackgroundMode`) backed by a native Android foreground service |
+| Audio | Web Audio API — all sounds synthesized at runtime via oscillators and noise buffers, no audio files |
+| Deployment | GitHub Pages (static site) |
 
-### `package.json` dependencies
+### Dependencies (`package.json`)
 
 ```json
 {
@@ -56,183 +169,28 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/Attention_Beeper/',
+  base: './',
 })
 ```
 
-`base` is set to `/Attention_Beeper/` for GitHub Pages deployment. Capacitor's build step (`npx cap sync android`) copies the `dist/` output into the Android project automatically.
+`base: './'` produces relative asset paths, which work correctly both on GitHub Pages (where the page is served from a subdirectory) and inside the Android APK (where Capacitor serves assets from `capacitor://localhost/`).
 
-### `capacitor.config.json`
-
-```json
-{
-  "appId": "com.attentionbeeper.app",
-  "appName": "Attention Beeper",
-  "webDir": "dist"
-}
-```
-
----
-
-## File Structure
+### File Structure
 
 ```
-index.html                         — HTML entry point
-vite.config.js                     — Vite config (sets base path)
-capacitor.config.json              — Capacitor config
+index.html
+vite.config.js
+capacitor.config.json
 package.json
 src/
-  main.jsx                         — React root, mounts <App /> in StrictMode
-  index.css                        — Global/body styles
-  App.jsx                          — All UI and scheduling logic
-  App.css                          — Component-scoped styles
-  sounds.js                        — SOUNDS array + playSound() via Web Audio API
-android/
-  app/src/main/
-    AndroidManifest.xml            — Permissions + service + activity declarations
-    java/com/attentionbeeper/app/
-      MainActivity.java            — Registers BackgroundModePlugin; extends BridgeActivity
-      BackgroundModePlugin.java    — Capacitor plugin: enable() / disable() methods
-      BackgroundService.java       — Android foreground service (sticky notification)
+  main.jsx       — React entry point, mounts <App /> in StrictMode
+  index.css      — Global/body styles
+  App.jsx        — All UI, session logic, and platform branching
+  App.css        — Component-scoped styles
+  sounds.js      — SOUNDS array and playSound() using Web Audio API
 ```
 
----
-
-## Default State
-
-| Setting | Default value |
-|---|---|
-| Interval value | `60` |
-| Interval unit | `seconds` |
-| Mode | `random` |
-| Selected sound | `digital` (first entry in SOUNDS array) |
-
----
-
-## Functional Requirements
-
-### 1. Beep Interval Configuration
-
-- A number input for the interval value (`min="1"`). Defaults to `60`.
-- A unit selector dropdown: **Seconds** or **Minutes**. Defaults to `seconds`.
-- Both are **disabled while the session is running**.
-
-### 2. Interval Mode
-
-Two modes rendered as styled radio cards (hidden `<input type="radio">` with a visible styled `<label>`):
-
-- **Fixed** (`value="fixed"`) — beep plays exactly at the end of each interval.
-- **Random** (`value="random"`) — beep plays at a random moment within each interval window.
-
-The label for the selected card gets class `selected`; when running it also gets class `disabled` (cursor: not-allowed, opacity 0.55). The hidden `<input>` has `disabled={isRunning}`.
-
-Below the cards, render a dynamic hint line:
-- Fixed: `Beeps exactly every {value} {unit}`
-- Random: `Beeps at a random moment within each {value}-{minute|second} window`
-
-Mode selection is disabled while running.
-
-#### Random mode scheduling
-
-When a loop iteration starts in random mode:
-1. Pick `delay = max(1000ms, random() * intervalMs)` — either pre-picked from the previous iteration or freshly computed.
-2. Set `nextBeepAtRef.current = Date.now() + delay`.
-3. `await sleep(delay)`.
-4. Check `runIdRef.current === id`; break if not.
-5. Play beep.
-6. Compute `remainder = intervalMs - delay`.
-7. Pre-pick `nextDelay = max(1000ms, random() * intervalMs)` for the next window.
-8. Set `nextBeepAtRef.current = Date.now() + remainder + nextDelay` (so the countdown reflects the entire remaining wait until the next beep).
-9. `await sleep(remainder)`.
-10. Loop back; use the pre-picked `nextDelay` as the delay for the next iteration.
-
-This guarantees each beep falls within its window boundary while the countdown remains meaningful across the full window.
-
-### 3. Sound Selection
-
-A `<select>` dropdown of 15 built-in sounds. The dropdown is **disabled while running**.
-
-| ID | Label |
-|---|---|
-| `digital` | Digital Beep |
-| `ping` | Ping |
-| `pluck` | Pluck |
-| `ding` | Ding |
-| `danger` | Danger Warning |
-| `chime` | Soft Chime |
-| `bell` | Bell |
-| `alert` | Alert Tone |
-| `drop` | Drop |
-| `bubble` | Bubble Pop |
-| `woodblock` | Wood Block |
-| `chord` | Soft Chord |
-| `blip` | Blip |
-| `whoosh` | Whoosh |
-| `click` | Click |
-
-### 4. Audio Preview
-
-A **Test** button next to the sound dropdown calls `playSound(selectedSound)` immediately. Always enabled (never disabled).
-
-### 5. Playback Controls
-
-- **Start** button: visible only when stopped.
-  1. Clamps `intervalValue` to `max(1, Number(intervalValue) || 1)`.
-  2. Computes `intervalMsRef.current` from the clamped value and unit.
-  3. Sets `isRunning = true`.
-  4. Calls `BackgroundMode.enable().catch(() => {})`.
-  5. Increments `runIdRef` to get a unique `id` for this run.
-  6. Launches the async loop (non-blocking — no `await` before the call).
-
-- **Stop** button: visible only when running.
-  1. Increments `runIdRef` (invalidates the loop).
-  2. Sets `isRunning = false`.
-  3. Calls `BackgroundMode.disable().catch(() => {})`.
-
-- On component unmount, the cleanup function increments `runIdRef` and calls `BackgroundMode.disable().catch(() => {})`.
-
-#### `sleep` helper
-
-```js
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
-```
-
-The loop `await`s each sleep. After every `await`, it checks `runIdRef.current === id` before proceeding. This makes Stop (or unmount) take effect as soon as the current sleep resolves.
-
-### 6. Countdown Timer
-
-Shown only while running, below the Stop button.
-
-- Label: `Next beep in` (rendered as `.countdown-label`, styled uppercase).
-- Value: rendered as `.countdown-time`, formatted `M:SS` (e.g. `1:05`, `0:30`) — large bold indigo text.
-- A `setInterval` ticking every 250 ms reads `nextBeepAtRef.current` and updates `timeLeft` state:
-  ```js
-  setTimeLeft(Math.max(0, Math.ceil((nextBeepAtRef.current - Date.now()) / 1000)))
-  ```
-- Displays `—` if `timeLeft` is `null` (i.e. `nextBeepAtRef.current` not yet set).
-- The interval is started in a `useEffect` dependent on `isRunning` and cleared on cleanup.
-
-### 7. Status Badge
-
-Always visible. A styled `<span className="status-badge">` containing a `<span className="status-dot">`.
-
-- **Stopped**: class `status-badge` only — red/pink pill, static dot.
-- **Running**: class `status-badge running` — green pill, pulsing animated dot (`@keyframes pulse`).
-
-### 8. Background Execution (Android only)
-
-`BackgroundMode` is a custom Capacitor plugin with two methods — `enable()` and `disable()` — called from `App.jsx` via:
-```js
-const BackgroundMode = registerPlugin('BackgroundMode')
-```
-
-Both calls are fire-and-forget (`.catch(() => {})`), so they do not throw on web where the native implementation is absent.
-
-The native side starts/stops a foreground `Service` (`BackgroundService`) that displays a sticky "Beeping session is running" notification. This prevents Android from killing the WebView process mid-session.
-
----
-
-## `index.html`
+### `index.html`
 
 ```html
 <!doctype html>
@@ -249,9 +207,7 @@ The native side starts/stops a foreground `Service` (`BackgroundService`) that d
 </html>
 ```
 
----
-
-## `src/main.jsx`
+### `src/main.jsx`
 
 ```jsx
 import { StrictMode } from 'react'
@@ -266,20 +222,12 @@ createRoot(document.getElementById('root')).render(
 )
 ```
 
----
-
-## `src/index.css` (global styles)
+### `src/index.css`
 
 ```css
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html {
-  overflow-x: hidden;
-}
+html { overflow-x: hidden; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -293,19 +241,110 @@ body {
   padding: 2rem 1rem;
 }
 
-/* Only vertically center on screens tall enough to avoid clipping */
+/* Vertically center only on screens tall enough to avoid clipping */
 @media (min-height: 700px) {
-  body {
-    justify-content: center;
-  }
+  body { justify-content: center; }
 }
 ```
 
----
+### `src/App.jsx` — Architecture
 
-## Audio Synthesis (`src/sounds.js`)
+`App.jsx` contains all UI and session logic. It detects the runtime platform at module load time:
 
-Export a single `AudioContext` that is lazily created and reused:
+```js
+const isNative = Capacitor.isNativePlatform()
+```
+
+This flag determines whether the JS loop or the native event stream drives the countdown and sound on each platform.
+
+#### State and refs
+
+| Name | Type | Purpose |
+|---|---|---|
+| `intervalValue` | state | Numeric interval (user input) |
+| `intervalUnit` | state | `'seconds'` or `'minutes'` |
+| `mode` | state | `'fixed'` or `'random'` |
+| `selectedSound` | state | ID of chosen sound |
+| `isRunning` | state | Whether a session is active |
+| `timeLeft` | state | Seconds until next beep (drives countdown display) |
+| `modeRef` | ref | Mirror of `mode` — readable by async loop without closure issues |
+| `soundRef` | ref | Mirror of `selectedSound` — readable by event listeners |
+| `intervalMsRef` | ref | Computed interval in ms — set on Start |
+| `runIdRef` | ref | Monotonic counter; incrementing it invalidates the current JS loop |
+| `nextBeepAtRef` | ref | `Date.now()` timestamp of the next beep; read by the countdown ticker |
+
+#### Session start (`handleStart`)
+
+1. Clamp `intervalValue` to `max(1, Number(intervalValue) || 1)`.
+2. Compute `intervalMsRef.current` (value × 1 000 or × 60 000).
+3. Set `isRunning = true`.
+4. Call `BackgroundMode.schedule({ intervalMs, mode })` — no-op on web, starts the native scheduler on Android.
+5. On **web** (`!isNative`): increment `runIdRef` and launch the JS loop.
+6. On **Android** (`isNative`): return immediately — the native scheduler owns timing.
+
+#### Session stop (`handleStop`)
+
+1. Increment `runIdRef` (invalidates the web JS loop; harmless on Android).
+2. Set `nextBeepAtRef.current = null` (clears the countdown immediately on Android).
+3. Set `isRunning = false`.
+4. Call `BackgroundMode.cancel()`.
+
+#### Web JS loop
+
+Runs only on web. On each iteration:
+
+**Fixed mode:**
+1. Set `nextBeepAtRef.current = Date.now() + intervalMs`.
+2. `await sleep(intervalMs)`.
+3. Check `runIdRef.current === id`; break if not.
+4. Call `playSound(soundRef.current)`.
+
+**Random mode:**
+1. Pick `delay = max(1000, random() * intervalMs)` (reuse pre-picked value from previous iteration if available).
+2. Set `nextBeepAtRef.current = Date.now() + delay`.
+3. `await sleep(delay)`.
+4. Check `runIdRef.current === id`; break if not.
+5. Call `playSound(soundRef.current)`.
+6. Compute `remainder = intervalMs - delay`.
+7. Pre-pick `nextDelay = max(1000, random() * intervalMs)`.
+8. Set `nextBeepAtRef.current = Date.now() + remainder + nextDelay`.
+9. `await sleep(remainder)`.
+
+At the end of the loop, set `nextBeepAtRef.current = null`.
+
+`sleep` helper:
+```js
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+```
+
+#### Native event listeners (Android)
+
+Registered unconditionally at mount; events only arrive on Android:
+
+```js
+// 'scheduled' fires once at session start — sets initial countdown
+BackgroundMode.addListener('scheduled', ({ nextDelayMs }) => {
+  nextBeepAtRef.current = Date.now() + nextDelayMs
+})
+
+// 'beep' fires on every beep — plays sound and resets countdown
+BackgroundMode.addListener('beep', ({ nextDelayMs }) => {
+  playSound(soundRef.current)
+  nextBeepAtRef.current = Date.now() + nextDelayMs
+})
+```
+
+#### Countdown ticker
+
+Runs every 250 ms while `isRunning`. Reads `nextBeepAtRef.current` and updates `timeLeft`:
+```js
+setTimeLeft(Math.max(0, Math.ceil((nextBeepAtRef.current - Date.now()) / 1000)))
+```
+Sets `timeLeft = null` if `nextBeepAtRef.current` is null (shows `—`).
+
+### Audio Synthesis (`src/sounds.js`)
+
+A single `AudioContext` is lazily created and reused. Before each sound, it is resumed if suspended (required by mobile browser autoplay policy):
 
 ```js
 let audioCtx = null
@@ -322,38 +361,126 @@ async function resumeCtx() {
 }
 ```
 
-`playSound(soundId)` calls `resumeCtx()` then dispatches to the matching synthesis function. Errors are caught and logged via `console.warn`.
+`playSound(soundId)` calls `resumeCtx()` then dispatches to the matching synthesis function. Errors are swallowed via `console.warn`.
 
-### Sound synthesis details
+#### Sound synthesis table
 
-| Sound ID | Function | Synthesis |
-|---|---|---|
-| `digital` | `digitalBeep` | Square wave, 440 Hz; gain 0.18 flat for 0.12s then linear ramp to 0 at 0.15s |
-| `ping` | `ping` | Triangle wave, 1400 Hz; gain 0.5, exponential decay to 0.001 at 0.4s |
-| `pluck` | `pluck` | Triangle wave, 493 Hz; gain 0.5, exponential decay to 0.001 at 0.6s |
-| `ding` | `ding` | Sine wave, 1047 Hz; gain linear ramp 0→0.45 in 0.01s, exponential decay to 0.001 at 1.6s |
-| `danger` | `danger` | 6 cycles × 2 bursts: square wave at 800 Hz then 1200 Hz, each 0.25s with 0.03s fade; total ~3s |
-| `chime` | `softChime` | Sine wave, 880→660 Hz exponential glide over 0.8s; gain 0→0.4 in 0.05s, exponential decay to 0.001 at 1.4s |
-| `bell` | `bell` | 3 sine oscillators at 523, 1046, 1568 Hz simultaneously; amplitudes 0.3, 0.15, 0.1; all decay to 0.001 at 2.0s |
-| `alert` | `alertTone` | Two sine bursts: 880 Hz at t+0, 1100 Hz at t+0.22; each gain 0.35 flat for 0.14s then ramp to 0 at 0.18s |
-| `drop` | `drop` | Sine wave, 600→150 Hz exponential pitch drop over 0.4s; gain 0.4, exponential decay to 0.001 at 0.4s |
-| `bubble` | `bubble` | Sine wave, 300→1200 Hz exponential pitch rise over 0.08s; gain 0.35, exponential decay to 0.001 at 0.12s |
-| `woodblock` | `woodblock` | Sine wave, 800→400 Hz exponential drop over 0.05s; gain 0.6, exponential decay to 0.001 at 0.08s |
-| `chord` | `chord` | 3 sine oscillators at 261, 329, 392 Hz, staggered 0.06s apart; each ramps 0→0.2 in 0.04s, decays to 0.001 at 1.2s after its start |
-| `blip` | `blip` | Square wave, 1800 Hz; gain 0.12 linear ramp to 0 at 0.06s |
-| `whoosh` | `whoosh` | 0.35s white noise buffer through bandpass filter sweeping 400→3000 Hz (Q=2); gain 0.6, exponential decay to 0.001 at 0.35s |
-| `click` | `click` | 0.02s white noise buffer with cubic amplitude envelope (`(1 - i/length)^3`); gain constant at 1.2 |
+| ID | Synthesis |
+|---|---|
+| `digital` | Square wave, 440 Hz; gain 0.18 flat for 0.12s then linear ramp to 0 at 0.15s |
+| `ping` | Triangle wave, 1400 Hz; gain 0.5, exponential decay to 0.001 at 0.4s |
+| `pluck` | Triangle wave, 493 Hz; gain 0.5, exponential decay to 0.001 at 0.6s |
+| `ding` | Sine wave, 1047 Hz; gain ramp 0→0.45 in 0.01s, exponential decay to 0.001 at 1.6s |
+| `danger` | 6 cycles × 2 bursts: square wave at 800 Hz then 1200 Hz, 0.25s each with 0.03s fade; ~3s total |
+| `chime` | Sine wave, 880→660 Hz exponential glide over 0.8s; gain 0→0.4 in 0.05s, decay to 0.001 at 1.4s |
+| `bell` | 3 sine oscillators at 523, 1046, 1568 Hz; amplitudes 0.3, 0.15, 0.1; all decay to 0.001 at 2.0s |
+| `alert` | Two sine bursts: 880 Hz at t+0 and 1100 Hz at t+0.22; each 0.35 gain flat for 0.14s then ramp to 0 at 0.18s |
+| `drop` | Sine wave, 600→150 Hz exponential pitch drop over 0.4s; gain 0.4, decay to 0.001 at 0.4s |
+| `bubble` | Sine wave, 300→1200 Hz exponential rise over 0.08s; gain 0.35, decay to 0.001 at 0.12s |
+| `woodblock` | Sine wave, 800→400 Hz exponential drop over 0.05s; gain 0.6, decay to 0.001 at 0.08s |
+| `chord` | 3 sine oscillators at 261, 329, 392 Hz, staggered 0.06s apart; each ramps 0→0.2 in 0.04s, decays to 0.001 at 1.2s |
+| `blip` | Square wave, 1800 Hz; gain 0.12 linear ramp to 0 at 0.06s |
+| `whoosh` | 0.35s white noise buffer through bandpass filter sweeping 400→3000 Hz (Q=2); gain 0.6, decay to 0.001 at 0.35s |
+| `click` | 0.02s white noise buffer with cubic amplitude envelope `(1 - i/length)³`; gain constant at 1.2 |
+
+### UI Elements
+
+| Element | Disabled while running? |
+|---|---|
+| Sound dropdown | Yes |
+| Test Sound button | No |
+| Interval value input | Yes |
+| Interval unit dropdown | Yes |
+| Mode radio cards | Yes (opacity 0.55, cursor: not-allowed) |
+| Mode hint text | — |
+| Start button | Hidden when running |
+| Stop button | Hidden when stopped |
+| Countdown display | Shown only when running |
+| Status badge | Always visible |
+
+### Visual Design
+
+| Token | Value |
+|---|---|
+| Page background | `#eef2f7` |
+| Card | White, `border-radius: 20px`, shadow `0 2px 8px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.08)` |
+| Primary color (buttons, focus, countdown) | `#667eea` |
+| Danger/stop color | `#f56565` |
+| Font | `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif` |
+| Number input spinners | Hidden |
+| Dropdown chevron | Inline SVG (`#718096` filled triangle) |
+| Status badge — stopped | Background `#fff5f5`, color `#c53030` |
+| Status badge — running | Background `#f0fff4`, color `#276749` |
+| Running dot animation | `@keyframes pulse` — opacity+scale oscillation, 1.4s ease-in-out |
+| Max content width | 460px, centered |
+
+#### Responsive breakpoints
+
+| Max-width | Changes |
+|---|---|
+| 480px | Card padding 1.25rem, gap 1.1rem, border-radius 16px; h1 1.5rem; unit dropdown min-width 90px |
+| 360px | Card padding 1rem; h1 1.3rem; icon 2rem; inputs/buttons height 42px; unit dropdown min-width 80px |
+
+### Platform Compatibility
+
+- Chrome, Firefox, Safari, Edge (desktop and mobile).
+- iOS Safari, Android Chrome.
+- Audio must be triggered by a user gesture. `AudioContext` is resumed on each `playSound()` call rather than recreated.
+
+### Build & Deployment
+
+```sh
+npm install
+npm run build    # outputs to dist/
+# deploy dist/ to GitHub Pages
+```
 
 ---
 
-## Android Native Files
+## 2b. Android App
 
-### `AndroidManifest.xml` (key entries)
+### Technology Stack
+
+| Concern | Choice |
+|---|---|
+| Native wrapper | Capacitor 8 (`@capacitor/core`, `@capacitor/android`, `@capacitor/cli`) |
+| Language | Java |
+| Background scheduling | Custom Capacitor plugin (`BackgroundMode`) backed by a native `Handler` loop |
+| Background audio | Web Audio API called from JS via `evaluateJavascript()` — no native audio API |
+| Process protection | Android foreground service with `PARTIAL_WAKE_LOCK` |
+| Min SDK | 24 (Android 7.0) |
+| Target / Compile SDK | 36 |
+
+### `capacitor.config.json`
+
+```json
+{
+  "appId": "com.attentionbeeper.app",
+  "appName": "Attention Beeper",
+  "webDir": "dist"
+}
+```
+
+### File Structure
+
+```
+capacitor.config.json
+android/
+  app/src/main/
+    AndroidManifest.xml
+    java/com/attentionbeeper/app/
+      MainActivity.java
+      BackgroundModePlugin.java
+      BackgroundService.java
+```
+
+### `AndroidManifest.xml` — Key Entries
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+<uses-permission android:name="android.permission.WAKE_LOCK" />
 
 <service
     android:name=".BackgroundService"
@@ -363,7 +490,7 @@ async function resumeCtx() {
 
 ### `MainActivity.java`
 
-Extends `BridgeActivity`. Registers `BackgroundModePlugin` before calling `super.onCreate()`:
+Extends `BridgeActivity`. Registers `BackgroundModePlugin` before `super.onCreate()` so the plugin is available from the first frame:
 
 ```java
 public class MainActivity extends BridgeActivity {
@@ -377,99 +504,101 @@ public class MainActivity extends BridgeActivity {
 
 ### `BackgroundModePlugin.java`
 
-Capacitor plugin named `"BackgroundMode"`. Exposes two plugin methods:
+Capacitor plugin (`name = "BackgroundMode"`). Holds a static reference to itself (`instance`) so `BackgroundService` can call back into JS without holding an Activity reference. The reference is refreshed in `load()` on every Activity creation.
 
-- `enable(call)` — starts `BackgroundService` via `startForegroundService`; resolves the call.
-- `disable(call)` — stops `BackgroundService` via `stopService`; resolves the call.
+#### Plugin methods (called from JS)
+
+**`schedule({ intervalMs, mode })`**
+- Reads `intervalMs` via `call.getDouble("intervalMs", 60000.0).longValue()` (using `getDouble` because Capacitor stores JSON numbers as boxed `Double` internally; `getLong` silently returns the default).
+- Reads `mode` via `call.getString("mode", "fixed")`.
+- Puts both as Intent extras and calls `startForegroundService`.
+
+**`cancel()`**
+- Calls `stopService` on `BackgroundService`.
+
+#### Static callbacks (called from `BackgroundService`)
+
+**`notifyNextDelay(long nextDelayMs)`**
+- Fires a `"scheduled"` event to JS with `{ nextDelayMs }`.
+- Called once at session start so JS can display the countdown before the first beep.
+
+**`triggerBeep(long nextDelayMs)`**
+- Fires a `"beep"` event to JS with `{ nextDelayMs }`.
+- Called on every beep. `nextDelayMs` is the delay already committed to the next `Handler.postDelayed` call, so JS countdown is exact — not an estimate.
 
 ### `BackgroundService.java`
 
-Extends `Service`. On `onCreate`, creates a `NotificationChannel` with `IMPORTANCE_LOW` (id: `attention_beeper_channel`). On `onStartCommand`, builds a sticky foreground notification:
+Extends `Service`. Owns all timing logic; the WebView is not involved in scheduling.
 
-- Title: `"Attention Beeper"`
-- Body: `"Beeping session is running"`
-- Small icon: `android.R.drawable.ic_lock_idle_alarm`
-- `setOngoing(true)` — not dismissible by the user
-- Tapping the notification opens `MainActivity` with `FLAG_ACTIVITY_SINGLE_TOP`
+#### Lifecycle
 
-Returns `START_STICKY`. `onBind` returns `null`.
+**`onCreate`**
+- Creates `Handler(Looper.getMainLooper())` — all callbacks run on the main thread, required for `evaluateJavascript`.
+- Creates the `NotificationChannel` (`IMPORTANCE_LOW`, id: `attention_beeper_channel`).
+- Creates the `PARTIAL_WAKE_LOCK` (not acquired yet).
 
----
+**`onStartCommand`**
+- Reads `intervalMs` and `mode` from the Intent.
+- Persists both to `SharedPreferences` (key: `"AttentionBeeper"`) so that a `START_STICKY` restart (Intent is null) can restore state without the JS layer.
+- If Intent is null, reads from `SharedPreferences` instead.
+- Shows the foreground notification (title: `"Attention Beeper"`, body: `"Beeping session is running"`, ongoing, tapping opens `MainActivity`).
+- Calls `wakeLock.acquire()` if not already held.
+- Calls `handler.removeCallbacksAndMessages(null)` to cancel any leftover callbacks.
+- Calls `startScheduler()`.
+- Returns `START_STICKY`.
 
-## Non-Functional Requirements
+**`onDestroy`**
+- Calls `handler.removeCallbacksAndMessages(null)`.
+- Releases the WakeLock if held.
+
+#### Scheduling
+
+```
+startScheduler()
+  firstDelay = computeDelay()
+  BackgroundModePlugin.notifyNextDelay(firstDelay)   → JS shows initial countdown
+  scheduleNextBeep(firstDelay)
+
+scheduleNextBeep(delay)
+  handler.postDelayed(() → {
+    nextDelay = computeDelay()                        → sampled before triggerBeep
+    BackgroundModePlugin.triggerBeep(nextDelay)       → JS plays sound + updates countdown
+    scheduleNextBeep(nextDelay)                       → same value given to Handler
+  }, delay)
+
+computeDelay()
+  fixed  → return intervalMs
+  random → return max(1000, (long)(Math.random() * intervalMs))
+```
+
+The next delay is computed **once** per cycle, immediately when the current beep fires, and passed to both `triggerBeep` and the next `postDelayed`. This ensures the value in the JS countdown is identical to the value the Android timer is waiting on — there is no separate random sampling on the JS side.
+
+#### Why this works in the background
+
+| Mechanism | What it prevents |
+|---|---|
+| Foreground service | Android killing the process to reclaim memory |
+| `PARTIAL_WAKE_LOCK` | CPU sleeping, which would stall `Handler.postDelayed` |
+| Native `Handler` (not JS `setTimeout`) | Android throttling WebView timers in backgrounded apps |
+| `START_STICKY` + `SharedPreferences` | Session parameters surviving a process restart |
 
 ### Platform Compatibility
-- Modern desktop browsers (Chrome, Firefox, Safari, Edge).
-- Mobile browsers (iOS Safari, Android Chrome).
-- Android native APK via Capacitor 8 (minSdk 23+, targetSdk 35).
-- Audio must be triggered by a user gesture — `AudioContext` is resumed (not re-created) on each `playSound()` call.
 
-### No Persistence
-Settings are not saved between sessions. All state is in-memory React state.
+- Android 7.0+ (minSdk 24).
+- Tested on Android 12+ (targetSdk 36).
 
-### Responsive Design
-- Max width: 460px, centered horizontally.
-- Body: `min-height: 100dvh`, flexbox; `justify-content: flex-start` with padding `2rem 1rem` by default; switches to `justify-content: center` on screens taller than 700px.
-- No horizontal scrolling at any viewport width.
+### Build & Deployment
 
-#### Breakpoints
-
-| Max-width | Changes |
-|---|---|
-| 480px | Card padding 1.25rem, gap 1.1rem, border-radius 16px; h1 font-size 1.5rem; `.select-unit` min-width 90px |
-| 360px | Card padding 1rem, gap 1rem; h1 font-size 1.3rem; icon font-size 2rem; inputs/buttons height 42px; `.select-unit` min-width 80px |
-
----
-
-## UI Elements Summary
-
-| Element | Type | Disabled while running? |
-|---|---|---|
-| Sound dropdown | `<select>` | **Yes** |
-| Test Sound button | `<button>` | No |
-| Interval input | `<input type="number">` | Yes |
-| Unit dropdown | `<select>` | Yes |
-| Mode radio cards | styled `<label>` | Yes (opacity 0.55, cursor: not-allowed) |
-| Mode hint text | `<p className="hint">` | — |
-| Start button | `<button>` | Hidden when running |
-| Stop button | `<button>` | Hidden when stopped |
-| Countdown display | `.countdown` div | Shown only when running |
-| Status badge | `<span className="status-badge">` | — (always visible) |
-
----
-
-## Visual Design
-
-| Token | Value |
-|---|---|
-| Background | `#eef2f7` |
-| Card background | `#fff`, `border-radius: 20px`, shadow `0 2px 8px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.08)` |
-| Primary / focus / countdown | `#667eea` (indigo) |
-| Stop / danger | `#f56565` (red) |
-| Font | `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif` |
-| Number input spinners | Hidden via `-webkit-appearance: none` and `-moz-appearance: textfield` |
-| Dropdown chevron | Inline SVG background image (filled `#718096` triangle) |
-| Status badge — stopped | Background `#fff5f5`, color `#c53030` |
-| Status badge — running | Background `#f0fff4`, color `#276749` |
-| Status dot animation | `@keyframes pulse` — opacity+scale oscillation over 1.4s ease-in-out |
-
----
-
-## Build & Deployment
-
-### Web (GitHub Pages)
 ```sh
-npm install
-npm run build          # outputs to dist/
-# push dist/ or configure GitHub Pages to deploy from dist/
+# 1. Build web assets
+npm run build
+
+# 2. Copy into the Android project
+npx cap sync android
+
+# 3. Compile the APK
+cd android && ./gradlew assembleDebug
+# output: android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### Android APK
-```sh
-npm run build                  # build the web assets
-npx cap sync android           # copy dist/ into android/ and sync plugins
-# open android/ in Android Studio → Build → Generate Signed APK
-# or: npx cap open android
-```
-
-Prerequisites for Android build: Android Studio, JDK 17+, Android SDK with API 35.
+Prerequisites: JDK 21, Android SDK with API 36, `JAVA_HOME` pointing to the full JDK (not just JRE).
